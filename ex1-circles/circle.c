@@ -58,17 +58,18 @@ void message_rx(message_t *m, distance_measurement_t *d) {
 }
 
 
-/******** PERFORM ACTION **********************/
+/******** PERFORM ACTION (Triggered by new mex) **********************/
 
 // Perform an action reacting to a non-void message receive
 void performAction(){
   switch(mydata->received_msg.data[0]){
-    case 1: set_color(RED); break;
-    case 2: set_color(GREEN); break;
-    case 3: set_color(BLUE); break;
-    case 4: set_color(YELLOW); break;
-    default: set_color(RGB(0,0,0));
+    case 1: mydata->my_color = RED; break;
+    case 2: mydata->my_color = GREEN; break;
+    case 3: mydata->my_color = BLUE; break;
+    case 4: mydata->my_color = YELLOW; break;
+    default: mydata->my_color = RGB(0,0,0);
   }
+  set_color(mydata->my_color);
 }
 
 // Read a message (if available) and perform an action
@@ -81,8 +82,14 @@ void readMessage(){
 
 
 /******** TIME MANAGEMENT *******************/
-uint8_t isInRange(uint8_t bottom, uint8_t top){
-  uint8_t elapsed_time = kilo_ticks - mydata->last_time;
+uint8_t isInRange(uint8_t bottom, uint8_t top, clock_type_t c_type){
+  // Calculate elapsed time 
+  uint8_t elapsed_time;
+  switch(c_type){
+    case BLINK_C: elapsed_time = kilo_ticks - mydata->blink_clock; break;
+    default: elapsed_time = kilo_ticks - mydata->default_clock;
+  }
+  // Check range
   if(elapsed_time >= bottom && elapsed_time < top){
     return 1; //True
   } else {
@@ -90,27 +97,30 @@ uint8_t isInRange(uint8_t bottom, uint8_t top){
   }
 }
 
-void resetClock(){
-  mydata->last_time = kilo_ticks;
+void resetClock(clock_type_t c_type){
+  switch(c_type){
+    case BLINK_C: mydata->blink_clock = kilo_ticks; break;
+    default: mydata->default_clock = kilo_ticks;
+  }
 }
 
 
 /******* COMMANDS **************************/
 
 void blink(uint8_t off_delay, uint8_t on_delay, uint8_t rgb_color){
-  if(isInRange(0,off_delay)){      // PHASE OFF
+  if(isInRange(0, off_delay, BLINK_C)){      // PHASE OFF
     set_color(RGB(0,0,0));
-  } else if (isInRange(off_delay, off_delay+on_delay)){  // PHASE ON
+  } else if (isInRange(off_delay, off_delay+on_delay, BLINK_C)){  // PHASE ON
     set_color(rgb_color);
   } else {
-    resetClock(); // Reset clock
+    resetClock(BLINK_C); // Reset clock
   }
 }
 
 // Moves for a given amount of time (ticks). 
 // Returns true when the movement is finished, otherwise false.
 uint8_t move(motion_t direction, uint8_t duration){
-  if(isInRange(0,duration)){
+  if(isInRange(0,duration,DEFAULT_C)){
     set_motion(direction);
     return 0;                 // Still moving, return false
   } else {
@@ -119,18 +129,17 @@ uint8_t move(motion_t direction, uint8_t duration){
   }
 }
 
-// Moves in a circle. Radius 1-4
-// Direction MUST be left or right!
-void moveInCircle(uint8_t radius, motion_t direction){
-  uint8_t duration = (radius * 32) - 1;
-  if(isInRange(0,duration)){                      
+// Moves in a circle (more or less)
+// Times are measured in ticks
+void moveInCircle(uint8_t forward_time, uint8_t rotation_time, motion_t direction){
+  if(isInRange(0,forward_time, DEFAULT_C)){                      
     set_motion(FORWARD);
     return;
-  } else if(isInRange(duration, 2*duration)) {
+  } else if(isInRange(forward_time, forward_time+rotation_time, DEFAULT_C)) {
     set_motion(direction);
     return;
   } else {
-    resetClock();
+    resetClock(DEFAULT_C);
   }
 }
 
@@ -141,12 +150,13 @@ void moveInCircle(uint8_t radius, motion_t direction){
 //Assign initial color
 void assignInitialColor(){
   switch (kilo_uid){
-    case 0: set_color(RGB(1,0,0)); break;
-    case 1: set_color(RGB(1,1,0)); break;
-    case 2: set_color(RGB(1,1,1)); break;
-    case 3: set_color(RGB(1,0,1)); break;
-    default: set_color(RGB(0,0,0));
+    case 0: mydata->my_color = RGB(1,0,0); break;
+    case 1: mydata->my_color = RGB(1,1,0); break;
+    case 2: mydata->my_color = RGB(1,1,1); break;
+    case 3: mydata->my_color = RGB(1,0,1); break;
+    default: mydata->my_color = RGB(0,0,0);
   }
+  set_color(mydata->my_color);
 }
 
 
@@ -160,12 +170,15 @@ void loop() {
   }
   // 2 - Moves
   switch (kilo_uid){
-    case 0: moveInCircle(2, LEFT); break;
-    case 1: moveInCircle(2, LEFT); break;
-    case 2: moveInCircle(2, LEFT); break;
-    case 3: moveInCircle(2, LEFT); break;
+    case 0: moveInCircle(64, 32, LEFT); break;
+    case 1: moveInCircle(64, 32, LEFT); break;
+    case 2: moveInCircle(64, 32, LEFT); break;
+    case 3: moveInCircle(64, 32, LEFT); break;
     default: set_color(RGB(0,0,0));
   }
+
+  // 3 - Blink
+  blink(16, 64, mydata->my_color);
 }
 
 
@@ -179,7 +192,8 @@ void setup()
   // State flag
   mydata->current_state = MOVE_ONE;
   // Time Management 
-  resetClock();
+  resetClock(BLINK_C);
+  resetClock(DEFAULT_C);
   // Color
   assignInitialColor();
 }

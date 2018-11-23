@@ -1,5 +1,5 @@
 {
-    "botName" : "Disperse bot",
+    "botName" : "Circle bot",
     "randSeed" : 1,
     "nBots" : 2,
     "timeStep" : 0.0416666,
