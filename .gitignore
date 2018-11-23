@@ -1,3 +1,10 @@
+
+# We don't need to share endstate files, so:
+endstate.json
+
+
+### TO IGNORE C BUILDINGs FILEs ###
+
 # Prerequisites
 *.d
 
