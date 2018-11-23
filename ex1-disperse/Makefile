@@ -7,7 +7,7 @@
 SOURCES=disperse.c 
 
 #name of the executable file
-EXECUTABLE=disperse
+EXECUTABLE=disperse.exe
 
 # Path to the official kilolib, used for real bots only
 # Set it here, or as an environment variable in the shell:
