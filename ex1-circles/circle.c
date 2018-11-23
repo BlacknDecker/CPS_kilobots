@@ -1,5 +1,5 @@
 #include <kilombo.h>
-#include "disperse.h"
+#include "circle.h"
 
 #ifdef SIMULATOR
 #include <stdio.h> // for printf

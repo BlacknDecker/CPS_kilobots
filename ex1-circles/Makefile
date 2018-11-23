@@ -4,10 +4,10 @@
 # configured below, these needs to be adapted to the system.
 
 #list of c files in this project
-SOURCES=disperse.c 
+SOURCES=circle.c 
 
 #name of the executable file
-EXECUTABLE=disperse.exe
+EXECUTABLE=circle.exe
 
 # Path to the official kilolib, used for real bots only
 # Set it here, or as an environment variable in the shell:
