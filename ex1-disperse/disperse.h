@@ -1,9 +1,13 @@
-#ifndef M_PI
-#define M_PI 3.141592653589793238462643383279502884197169399375105820974944
-#endif
 
+#define NO_MESSAGE 0    // Constant to declare no message content
 
-// declare motion variable type
+// COLORS
+#define RED RGB(3,0,0)
+#define GREEN RGB(0,3,0)
+#define BLUE RGB(0,0,3)
+#define YELLOW RGB(0,1,1)
+
+// MOTION TYPE
 typedef enum {
     STOP,
     FORWARD,
@@ -12,7 +16,7 @@ typedef enum {
 } motion_t;
 
 
-// declare state variable type
+// STATES
 typedef enum {
     MOVE_ONE,
     MOVE_TWO,
@@ -20,18 +24,20 @@ typedef enum {
 } move_state_t;
 
 
-// declare variables
+// GLOBAL VARIABLES
 typedef struct 
 {
   // Messages
-  uint8_t new_message;
+  uint8_t new_message;     //Flag
   message_t transmit_msg;
+  message_t received_msg;
+
   // State flag
-  uint8_t ready;
-  move_state_t current_state; // K3 State
+  move_state_t current_state;
+
   // Time Management
-  uint8_t last_time;   
-  uint8_t elapsed_time;
+  uint8_t last_time;
+
 } USERDATA;
 
 

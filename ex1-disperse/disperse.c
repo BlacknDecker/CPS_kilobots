@@ -38,12 +38,7 @@ void set_motion(motion_t new_motion)
 
 /******* MESSAGE EXCHANGING ******************/
 
-//Callback to Receive messages
-void message_rx(message_t *m, distance_measurement_t *d) {
-    mydata->new_message = 1;
-}
-
-// To setup a static message <------we should generalize to set different messages (maybe only integer mex for now)
+// Generate a message
 void setup_message(uint8_t new_mex){
   mydata->transmit_msg.type = NORMAL;
   mydata->transmit_msg.data[0] = new_mex;
@@ -51,17 +46,44 @@ void setup_message(uint8_t new_mex){
   mydata->transmit_msg.crc = message_crc(&mydata->transmit_msg);
 }
 
-//Callback to send a message
-message_t *message_tx() 
-{
+// Callback to send a message
+message_t *message_tx(){
   return &mydata->transmit_msg;
+}
+
+// Callback to Receive messages
+void message_rx(message_t *m, distance_measurement_t *d) {
+    mydata->new_message = 1;
+    mydata->received_msg = *m;
+}
+
+
+/******** PERFORM ACTION **********************/
+
+// Perform an action reacting to a non-void message receive
+void performAction(){
+  switch(mydata->received_msg.data[0]){
+    case 1: set_color(RED); break;
+    case 2: set_color(GREEN); break;
+    case 3: set_color(BLUE); break;
+    case 4: set_color(YELLOW); break;
+    default: set_color(RGB(0,0,0));
+  }
+}
+
+// Read a message (if available) and perform an action
+void readMessage(){
+  mydata->new_message = 0;            //Reset Flag
+  if(mydata->received_msg.data[0]){   //If message not void
+    performAction();                  // Perform action
+  }
 }
 
 
 /******** TIME MANAGEMENT *******************/
 uint8_t isInRange(uint8_t bottom, uint8_t top){
-  mydata->elapsed_time = kilo_ticks - mydata->last_time;
-  if(mydata->elapsed_time >= bottom && mydata->elapsed_time < top){
+  uint8_t elapsed_time = kilo_ticks - mydata->last_time;
+  if(elapsed_time >= bottom && elapsed_time < top){
     return 1; //True
   } else {
     return 0; //False
@@ -70,8 +92,8 @@ uint8_t isInRange(uint8_t bottom, uint8_t top){
 
 void resetClock(){
   mydata->last_time = kilo_ticks;
-  return;
 }
+
 
 /******* COMMANDS **************************/
 
@@ -85,95 +107,65 @@ void blink(uint8_t off_delay, uint8_t on_delay, uint8_t rgb_color){
   }
 }
 
-// fa un'azione per un certo tempo. suppone che il clock sia già resettato. Ritorna true quando il delay è terminato
+// Moves for a given amount of time (ticks). 
+// Returns true when the movement is finished, otherwise false.
 uint8_t move(motion_t direction, uint8_t duration){
   if(isInRange(0,duration)){
     set_motion(direction);
-    return 0;                 // Still in range, return false
+    return 0;                 // Still moving, return false
   } else {
     set_motion(STOP);         // Movement ended, return true
     return 1;
   }
 }
 
-
-/******* KILO 2 MOVEMENT *******************/
-
-void kiloTwoMovements(){
-  switch(mydata->current_state){
-    case MOVE_ONE:
-      printf("STATE 1: %d\t", kilo_ticks);
-      printf("Elapsed time: %d\n", mydata->elapsed_time);
-      if(move(LEFT, 160)){                // Action in State 1                      
-        printf("END STATE 1!\n");
-        resetClock();                     // End state: reset clock and move to next state
-        mydata->current_state = MOVE_TWO;
-      }
-      break;
-    case MOVE_TWO:
-      printf("STATE 2: %d\n", kilo_ticks);
-      if(move(FORWARD, 200)){         // Action in State 2  (5 sec)      
-        resetClock();                 // End state: reset clock and move to next state
-        mydata->current_state = MOVE_THREE;
-      }
-      break;
-    case MOVE_THREE:
-      printf("STATE 3: %d\n", kilo_ticks);
-      if(move(RIGHT, 96)){            // Action in State 3      
-        resetClock();                 // End state: reset clock and move to initial state state
-        mydata->current_state = MOVE_ONE;
-      }
-      break;
-    default:
-      printf("DEFAULT BEHAVIOR!\n");
-      set_color(RGB(0,0,0));
+// Moves in a circle. Radius 1-4
+// Direction MUST be left or right!
+void moveInCircle(uint8_t radius, motion_t direction){
+  uint8_t duration = (radius * 32) - 1;
+  if(isInRange(0,duration)){                      
+    set_motion(FORWARD);
+    return;
+  } else if(isInRange(duration, 2*duration)) {
+    set_motion(direction);
+    return;
+  } else {
+    resetClock();
   }
 }
+
+
+
+/******* Utility **************************/
+
+//Assign initial color
+void assignInitialColor(){
+  switch (kilo_uid){
+    case 0: set_color(RGB(1,0,0)); break;
+    case 1: set_color(RGB(1,1,0)); break;
+    case 2: set_color(RGB(1,1,1)); break;
+    case 3: set_color(RGB(1,0,1)); break;
+    default: set_color(RGB(0,0,0));
+  }
+}
+
 
 
 /******* SETUP,LOOP,MAIN *******************/
 
 void loop() {
-  /* MESSAGE EXCANGE PHASE */
-    if (mydata->new_message && kilo_uid == 1){
-      mydata->new_message = 0;
-      kilo_message_tx = message_tx;
-      //mydata->last_time = kilo_ticks; // Reset clock 
-      mydata->ready = 1;
-    } else if (mydata->new_message && kilo_uid == 0){
-      // K0 received the ack
-      mydata->new_message = 0;
-      //kilo_message_tx = NULL;
-      mydata->ready = 1;
-    }
-  /* START DO SOMETHING */
-    if (kilo_uid == 0 || kilo_uid == 1){
-      if (mydata->ready == 1){
-        // K0
-        if (kilo_uid == 0){
-          blink(32, 64, RGB(1,1,0));
-          set_motion(RIGHT); // K_0 CW
-        } else { 
-          // -- Blink -- K1
-          if(isInRange(0,32)){  // PHASE OFF
-            set_color(RGB(0,0,0));
-            set_motion(FORWARD);
-          } else if (isInRange(32, 64)){  // PHASE ON
-            set_color(RGB(0,0,1));
-            set_motion(LEFT); // K_1 CCW
-          } else {
-            resetClock(); // Reset clock
-          }  
-        }
-      }
-    }
-    
-    // KILO 2
-    if (kilo_uid == 2){
-      kiloTwoMovements();
-    }
-    
-  
+  // 1 - Read message (if available)
+  if(mydata->new_message){
+    readMessage();
+  }
+  // 2 - Moves
+  switch (kilo_uid){
+    case 0: moveInCircle(2, LEFT); break;
+    case 1: moveInCircle(2, LEFT); break;
+    case 2: moveInCircle(2, LEFT); break;
+    case 3: moveInCircle(2, LEFT); break;
+    default: set_color(RGB(0,0,0));
+  }
 }
 
 
@@ -181,28 +173,20 @@ void setup()
 {
   // Message variables
   mydata->new_message = 0;
-  setup_message(123);  
+  kilo_message_tx = message_tx;
+  kilo_message_rx = message_rx;
+  setup_message(kilo_uid + 1);  
   // State flag
-  mydata->ready = 0;
   mydata->current_state = MOVE_ONE;
   // Time Management 
-  mydata->last_time = kilo_ticks;
-  mydata->elapsed_time = 0;
+  resetClock();
+  // Color
+  assignInitialColor();
 }
 
 
 int main() {
     kilo_init();
-    if (kilo_uid == 0){
-      set_color(RGB(1,0,0));
-      kilo_message_tx = message_tx;  // K0 Send GO
-      kilo_message_rx = message_rx;  // K0 also receive
-    }else if (kilo_uid == 1){
-      set_color(RGB(0,1,0));
-      kilo_message_rx = message_rx;  // k1 Listening
-    } else if (kilo_uid == 2){
-      set_color(RGB(10,0,0));
-    }
     kilo_start(setup, loop);
     return 0;
 }
