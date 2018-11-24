@@ -36,6 +36,9 @@ typedef struct
   uint8_t default_clock;
   uint8_t blink_clock;  // Used only to blink!
 
+  // State
+  uint8_t message_arrived; //Flag
+
 } USERDATA;
 
 

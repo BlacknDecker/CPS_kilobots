@@ -62,6 +62,7 @@ message_t *message_tx(){
 
 // Callback to Receive messages
 void message_rx(message_t *m, distance_measurement_t *d) {
+    mydata->message_arrived = 1;
     mydata->new_message = 1;
     mydata->received_msg = *m;
 }
@@ -181,9 +182,27 @@ void moveInCircle(uint8_t forward_time, uint8_t rotation_time, motion_t directio
 
 /******* Utility **************************/
 
-//Assign initial color
+// Assign initial color
 void assignInitialColor(){
   set_color(RGB(0,0,0));
+}
+
+
+// Check stable state:
+// If i don't receive any message in a_time i'm alone
+// NB: uses DEFAULT CLOCK
+uint8_t checkIfAlone(uint8_t a_time){
+  if(mydata->message_arrived){      // Reset
+    resetClock(DEFAULT_C);
+    mydata->message_arrived = 0;
+    return 0;
+  }else{
+    if(isInRange(0, a_time, DEFAULT_C)){   // If is in range, not enough time elapsed
+      return 0;
+    }else{
+      return 1;
+    }
+  }
 }
 
 
@@ -193,11 +212,12 @@ void assignInitialColor(){
 void loop() {
   if(mydata->new_message){  // Disperse Phase
     readMessage();
-  }else{                    // Alone Phase
-    set_color(OFF);
-    set_motion(STOP);          
   }
-  
+
+  if(checkIfAlone(64)){       // Stay Phase (192 = 6 sec)
+    blink(32,64,WHITE);
+    set_motion(STOP);
+  }
 }
 
 
@@ -209,6 +229,8 @@ void setup(){
   mydata->new_message = 0;
   kilo_message_tx = message_tx;
   kilo_message_rx = message_rx;
+  // States
+  mydata->message_arrived = 0;
   // Time Management 
   resetClock(BLINK_C);
   resetClock(DEFAULT_C);
