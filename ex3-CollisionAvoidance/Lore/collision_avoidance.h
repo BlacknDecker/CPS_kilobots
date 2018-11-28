@@ -1,5 +1,5 @@
-
-#define NO_MESSAGE 0    // Constant to declare no message content
+// Constant to declare no message content
+#define NO_MESSAGE 0    
 
 // COLORS
 #define OFF RGB(0,0,0)
@@ -7,6 +7,14 @@
 #define GREEN RGB(0,3,0)
 #define BLUE RGB(0,0,3)
 #define WHITE RGB(3,3,3)
+#define PURPLE RGB(1,0,1)
+#define YELLOW RGB(2,2,0)
+#define ORANGE RGB(2,1,0)
+
+// DISTANCE
+#define DANGER_D 45
+#define WARNING_D 60
+#define SAFE_D 70
 
 // MOTION TYPE
 typedef enum {
@@ -30,7 +38,12 @@ typedef struct
   // Messages
   uint8_t new_message;     //Flag
   message_t transmit_msg;
-  message_t received_msg;
+  uint8_t received_msg;
+  uint8_t sender_id;
+
+  // Distance
+  uint8_t min_distance;
+  uint8_t min_bot;
 
   // Time Management
   uint8_t default_clock;
