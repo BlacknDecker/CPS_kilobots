@@ -65,6 +65,7 @@ void message_rx(message_t *m, distance_measurement_t *d) {
     mydata->message_arrived = 1;
     mydata->new_message = 1;
     mydata->received_msg = *m;
+    mydata->dist = *d;
 }
 
 
@@ -110,7 +111,7 @@ void performAction(){
 // Read a message (if available) and perform an action
 void readMessage(){
   mydata->new_message = 0;            //Reset Flag
-  if(mydata->received_msg.data[0]){   //If message not void
+  if(mydata->received_msg.data[0] && mydata->danger_flag == 0){   //If message not void
     performAction();                  // Perform action
   }
 }
@@ -212,13 +213,38 @@ uint8_t checkIfAlone(uint8_t a_time){
 void loop() {
   if(mydata->new_message){  // Disperse Phase
     readMessage();
-  }
+        mydata->new_message = 0;
+        mydata->current_distance = estimate_distance(&mydata->dist);
+
+        // Collision avoidance
+        if (mydata->current_distance < 50){
+          blink(32,64,WHITE);
+          set_motion(STOP);
+          mydata->danger_flag = 1;
+          
+        }
+               else if (mydata->current_distance < 90 && mydata->current_distance > 60 && mydata->danger_flag==0){
+          set_motion(RIGHT);
+          
+        }
+
+        } else if (mydata->new_message == 0 && mydata->current_distance > 70){
+
+              mydata->danger_flag = 0;
+        return;
+        } // skip state machine if no distance measurement available
+        
+
+  
 
   if(checkIfAlone(64)){       // Stay Phase (192 = 6 sec)
     blink(32,64,WHITE);
     set_motion(STOP);
   }
+
+
 }
+
 
 
 void setup(){
@@ -231,6 +257,7 @@ void setup(){
   kilo_message_rx = message_rx;
   // States
   mydata->message_arrived = 0;
+  mydata->danger_flag = 0;
   // Time Management 
   resetClock(BLINK_C);
   resetClock(DEFAULT_C);

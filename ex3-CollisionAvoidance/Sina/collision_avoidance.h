@@ -35,9 +35,14 @@ typedef struct
   // Time Management
   uint8_t default_clock;
   uint8_t blink_clock;  // Used only to blink!
+  // distance 
+  uint8_t current_distance;
+  distance_measurement_t dist;
+
 
   // State
   uint8_t message_arrived; //Flag
+  uint8_t danger_flag; //Flag, eaquals to 1 when too close
 
 } USERDATA;
 
