@@ -1,8 +1,8 @@
 {
-    "botName" : "Disperse bot",
+    "botName" : "Flooding Informations",
     "randSeed" : 1,
-    "nBots" : 10,
-    "formation" : "random",
+    "nBots" : 500,
+    "formation" : "ellipse",
     "timeStep" : 0.0416666,
     "__note" : "0.04166 is 24 FPS which matches the movie frame rate",
     "__timeStep" : 0.03225,

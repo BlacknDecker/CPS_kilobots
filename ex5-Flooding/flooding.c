@@ -14,75 +14,15 @@ REGISTER_USERDATA(USERDATA)
 /*
 ** 
 */
+/******* PROTOTIPES ********************/
+void resetClock(clock_type_t c_type);
+uint8_t isInRange(uint8_t bottom, uint8_t top, clock_type_t c_type);
+
+
 
 /******* CONSTANTS ********************/
-static const uint8_t MAX_INT = 255; 
-
-
-/******* DISTANCE *********************/
-
-// Register only the closest bot distance
-void updateDistance(distance_measurement_t *d){
-	uint8_t new_dist = estimate_distance(d);
-	if(mydata->sender_id == mydata->min_bot){	// The closest bot changed distance: update!
-		mydata->min_distance = new_dist;
-	}else{
-		if(new_dist < mydata->min_distance){	// There's a new closest bot: update!
-			mydata->min_distance = new_dist;
-			mydata->min_bot = mydata->sender_id;
-		}
-	}
-}
-
-
-/******* MOVEMENT *********************/
-
-void set_motion(motion_t new_motion)
-{
-  switch(new_motion) {
-  case STOP:
-    set_motors(0,0);
-    break;
-  case FORWARD:
-    set_motors(kilo_turn_left, kilo_turn_right);
-    break;
-  case LEFT:
-    set_motors(kilo_turn_left, 0); 
-    break;
-  case RIGHT:
-    set_motors(0, kilo_turn_right); 
-    break;
-  }
-}
-
-
-/******** COLLISION AVOIDANCE ****************/
-
-uint8_t collisionDetected(){
-	if(mydata->min_distance <= WARNING_D){
-		return 1;
-	}else{
-		return 0;
-	}
-}
-
-uint8_t isInDanger(){
-	if(mydata->min_distance < DANGER_D){
-		return 1;
-	}else{
-		return 0;
-	}
-}
-
-void avoidCollision(){
-	if(isInDanger()){		// DANGER AREA --> STOP
-		set_motion(STOP);
-		set_color(RED);
-	}else{					// WARNING Area --> Try to avoid
-		set_motion(RIGHT);
-		set_color(PURPLE);
-	}
-}
+// static const uint8_t MAX_INT = 255; 
+static const uint8_t WAIT_TIME = 160; // 5 sec
 
 
 /******** RANDOM *******************************/
@@ -96,13 +36,35 @@ void setupSeed(){
 
 /******* MESSAGE EXCHANGING ******************/
 
-// Create a random payload (4 bits)
-uint8_t createRandomPayload(){
-	uint8_t tmp = rand_soft();	// 8 bits!
-	tmp <<= 2;					// Cut 2 bits on left
-	tmp >>= 4;					// Cut 2 bits on right
-	return tmp;
+// util function
+void printTwoDigitNumber(uint8_t num){
+	if(num < 10)
+		printf("0");
+	printf("%d", num);
 }
+
+// util function
+void printThreeDigitNumber(uint8_t num){
+	if(num < 100)
+		printf("0");
+	if(num < 10)
+		printf("0");
+	printf("%d", num);
+}
+
+// Prints a "log" message
+void printMessage(){
+	printf("Bot ");
+	printTwoDigitNumber(kilo_uid);
+	printf(" -> | sender: ");
+	printTwoDigitNumber(mydata->sender_id);
+	printf(" | msg: ");
+	printThreeDigitNumber(mydata->received_msg);
+	printf(" | state: ");
+	printTwoDigitNumber(mydata->state);
+	printf(" |\n");
+}
+
 
 // Generate a message
 void setup_message(uint8_t payload){
@@ -114,11 +76,8 @@ void setup_message(uint8_t payload){
 
 // Callback to send a message
 message_t *message_tx(){
-  setup_message(createRandomPayload());      //Generate a new message every time!
   return &mydata->transmit_msg;
 }
-
-
 
 // Get the sender uid
 void getSenderID(message_t m){
@@ -136,59 +95,61 @@ void getMessagePayload(message_t m){
 
 // Callback to Receive messages
 void message_rx(message_t *m, distance_measurement_t *d) {
-    mydata->message_arrived = 1;
     mydata->new_message = 1;
     getSenderID(*m);
     getMessagePayload(*m);
-    updateDistance(d);
-    printf("Bot %d -> | sender: %d | msg: %d | dist: %d mm|\n", kilo_uid, mydata->sender_id, mydata->received_msg, mydata->min_distance);
+    // printMessage();
+}
+
+
+
+/******* STATE MANAGEMENT ********************/
+
+// Called by loop
+void initiatorManager(){
+	if(isInRange(0,WAIT_TIME, DEFAULT_C)){		// Wait a random time before start
+		set_color(GREEN);										// Do nothing while waiting
+	}else{
+		setup_message(GREEN);									// Send my color to neighbours
+		// resetClock(DEFAULT_C);								// Reset Clock
+		// mydata->state = DONE;									// Change state -> need to wait some time!
+	}
+	/*********************** CI VOGLIONO PIU' STATI!!!!!!! */
+}
+
+
+
+// Called by performAction (when receiving a message)
+void sleepingManager(){
+	setup_message(mydata->received_msg);						// When receiving a message, sends it to neighbours
+	set_color(mydata->received_msg);							// Change my color
+	// mydata->state = DONE;										// After sending a message i'm done!
+	// setup_message(NO_MESSAGE);									// Stop sending messages
+}
+
+
+void doneManager(){
+	printf("%d -> DONE!\n", kilo_uid);						   // Done -> do nothing!
+}
+
+
+void errorManager(){
+	set_color(RED);
+  	printf("ERROR! WRONG STATE!\n");
 }
 
 
 /******** PERFORM ACTION (Triggered by new mex) **********************/
 
-motion_t getDirection(uint8_t mex){
-  if(mex>0 && mex<4){           // 25% LEFT
-    return LEFT;
-  }else if(mex>=4 && mex<12){   // 50% FORWARD
-    return FORWARD;
-  }else if(mex>=12 && mex<16){  // 25% RIGHT
-    return RIGHT;
-  }else{                          // Error: off
-    return STOP;
-  }
-}
-
-
-void disperse(){
-  uint8_t mex = mydata->received_msg;   // Just for code clearness
-  // Change direction based on the message received
-  switch(getDirection(mex)){
-    case LEFT:         
-      set_motion(LEFT);
-      set_color(YELLOW);
-      break;
-    case FORWARD:      
-      set_motion(FORWARD);
-      set_color(GREEN);
-      break;
-    case RIGHT:     
-      set_motion(RIGHT);
-      set_color(BLUE);
-      break;
-    default:                      
-      set_motion(STOP);
-      set_color(OFF);
-  }
-}
-
 
 // Perform an action reacting to a non-void message receive
 void performAction(){
-  if(collisionDetected()){
-  	avoidCollision();
-  }else{
-  	disperse();
+  printMessage();
+  switch(mydata->state){
+  	case INITIATOR: break;				// Should not receive messages!
+  	case SLEEPING:  sleepingManager();  break;
+  	case DONE:      break;				// Should not receive messages!
+  	default: 		errorManager();
   }
 }
 
@@ -237,72 +198,38 @@ void blink(uint8_t off_delay, uint8_t on_delay, uint8_t rgb_color){
   }
 }
 
-// Moves for a given amount of time (ticks). 
-// Returns true when the movement is finished, otherwise false.
-uint8_t move(motion_t direction, uint8_t duration){
-  if(isInRange(0,duration,DEFAULT_C)){
-    set_motion(direction);
-    return 0;                 // Still moving, return false
-  } else {
-    set_motion(STOP);         // Movement ended, return true
-    return 1;
-  }
-}
-
-// Moves in a circle (more or less)
-// Times are measured in ticks
-void moveInCircle(uint8_t forward_time, uint8_t rotation_time, motion_t direction){
-  if(isInRange(0,forward_time, DEFAULT_C)){                      
-    set_motion(FORWARD);
-    return;
-  } else if(isInRange(forward_time, forward_time+rotation_time, DEFAULT_C)) {
-    set_motion(direction);
-    return;
-  } else {
-    resetClock(DEFAULT_C);
-  }
-}
 
 
 /******* Utility **************************/
 
+// Assign initial state
+void setupStates(){
+	if(kilo_uid){
+		mydata->state = SLEEPING;
+	}else{
+		mydata->state = INITIATOR; 				 // Kilo 0 is the Initiator
+		mydata->random_wait_time = rand_soft();	 // To wait for a random time
+	}
+}
+
 // Assign initial color
 void assignInitialColor(){
-  set_color(RGB(0,0,0));
+	if(kilo_uid){
+		set_color(OFF);
+	}else{
+		set_color(GREEN);
+	}
 }
-
-
-// Check stable state:
-// If i don't receive any message in a_time i'm alone
-// NB: uses DEFAULT CLOCK
-uint8_t checkIfAlone(uint8_t a_time){
-  if(mydata->message_arrived){      // Reset
-    resetClock(DEFAULT_C);
-    mydata->message_arrived = 0;
-    return 0;
-  }else{
-    if(isInRange(0, a_time, DEFAULT_C)){   // If is in range, not enough time elapsed
-      return 0;
-    }else{
-      return 1;
-    }
-  }
-}
-
-
-
 
 
 /******* SETUP,LOOP,MAIN *******************/
 
 void loop() {
-  if(mydata->new_message){  // Disperse Phase
-    readMessage();
-  }
-
-  if(checkIfAlone(64)){       // Stay Phase (192 = 6 sec)
-    blink(32,64,WHITE);
-    set_motion(STOP);
+  switch(mydata->state){
+  	case INITIATOR: initiatorManager(); break;
+  	case SLEEPING:  readMessage();      break;						//Activated by incoming message
+  	case DONE:      break;
+  	default: 		errorManager();
   }
 }
 
@@ -311,19 +238,17 @@ void setup(){
   // Random
   setupSeed();
   // Message variables
-  setup_message(rand_soft()); 
+  setup_message(NO_MESSAGE); 
   mydata->new_message = 0;
   kilo_message_tx = message_tx;
   kilo_message_rx = message_rx;
-  // Messages
-  mydata->message_arrived = 0;
+  mydata->received_msg = 0;
   // Time Management 
   resetClock(BLINK_C);
+  resetClock(MESSAGE_C);
   resetClock(DEFAULT_C);
-  // Distance
-  mydata->min_distance = MAX_INT;
-  mydata->min_distance = MAX_INT;
-  mydata->min_bot = -1;
+  // State
+  setupStates();
   // Color
   assignInitialColor();
 }

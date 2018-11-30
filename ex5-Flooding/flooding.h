@@ -11,25 +11,20 @@
 #define YELLOW RGB(2,2,0)
 #define ORANGE RGB(2,1,0)
 
-// DISTANCE
-#define DANGER_D 45
-#define WARNING_D 60
-#define SAFE_D 70
-
-// MOTION TYPE
-typedef enum {
-  STOP,
-  FORWARD,
-  LEFT,
-  RIGHT
-} motion_t;
-
-
 // CLOCKS TYPES
 typedef enum {
   BLINK_C,
+  MESSAGE_C,
   DEFAULT_C
 } clock_type_t;
+
+
+// STATES
+typedef enum {
+  INITIATOR,
+  SLEEPING,
+  DONE
+} flooding_states_t;
 
 
 // GLOBAL VARIABLES
@@ -41,16 +36,15 @@ typedef struct
   uint8_t received_msg;
   uint8_t sender_id;
 
-  // Distance
-  uint8_t min_distance;
-  uint8_t min_bot;
-
   // Time Management
   uint8_t default_clock;
   uint8_t blink_clock;  // Used only to blink!
 
-  // State
-  uint8_t message_arrived; //Flag
+  // States
+  flooding_states_t state;    // My state
+
+  // utilities
+  uint8_t random_wait_time;
 
 } USERDATA;
 
