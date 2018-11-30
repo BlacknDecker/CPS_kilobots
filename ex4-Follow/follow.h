@@ -31,6 +31,15 @@ typedef enum {
   DEFAULT_C
 } clock_type_t;
 
+// RUNNER
+typedef struct runner_t
+{
+  uint8_t runner_id;
+  uint8_t last_distance;
+  uint8_t new_distance;
+  uint8_t last_direction; // belongs to the interval [0,2] (corrisponding to FORWARD, RIGHT, LEFT)
+  uint8_t in_range;
+} runner_t;
 
 // GLOBAL VARIABLES
 typedef struct 
@@ -38,7 +47,6 @@ typedef struct
   // Messages
   uint8_t new_message;     //Flag
   message_t transmit_msg;
-  uint8_t received_msg;
   uint8_t sender_id;
 
   // Distance
@@ -52,8 +60,10 @@ typedef struct
   // State
   uint8_t message_arrived; //Flag
 
+  // RUNNER
+  runner_t runner; // contains the data to follow the runner
+
+  // flag to stop the communication
+  uint8_t stopped; 
+
 } USERDATA;
-
-
-
-

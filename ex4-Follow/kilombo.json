@@ -1,7 +1,7 @@
 {
     "botName" : "Disperse bot",
     "randSeed" : 1,
-    "nBots" : 10,
+    "nBots" : 3,
     "formation" : "random",
     "timeStep" : 0.0416666,
     "__note" : "0.04166 is 24 FPS which matches the movie frame rate",
