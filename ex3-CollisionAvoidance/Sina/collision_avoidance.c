@@ -24,7 +24,7 @@ void set_motion(motion_t new_motion)
     set_motors(0,0);
     break;
   case FORWARD:
-    set_motors(kilo_turn_left, kilo_turn_right);
+    set_motors(kilo_straight_left, kilo_straight_right);
     break;
   case LEFT:
     set_motors(kilo_turn_left, 0); 
@@ -216,6 +216,11 @@ void loop() {
         mydata->new_message = 0;
         mydata->current_distance = estimate_distance(&mydata->dist);
 
+
+
+        
+
+
         // Collision avoidance
         if (mydata->current_distance < 50){
           blink(32,64,WHITE);
@@ -228,7 +233,8 @@ void loop() {
           
         }
 
-        } else if (mydata->new_message == 0 && mydata->current_distance > 70){
+        } else if (mydata->new_message == 0 && mydata->current_distance > 70 && isInRange(0,150,DEFAULT_C)){
+          
 
               mydata->danger_flag = 0;
         return;
