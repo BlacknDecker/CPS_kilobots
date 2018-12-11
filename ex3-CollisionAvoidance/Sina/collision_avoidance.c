@@ -216,6 +216,11 @@ void loop() {
         mydata->new_message = 0;
         mydata->current_distance = estimate_distance(&mydata->dist);
 
+
+
+        
+
+
         // Collision avoidance
         if (mydata->current_distance < 50){
           blink(32,64,WHITE);
@@ -228,7 +233,8 @@ void loop() {
           
         }
 
-        } else if (mydata->new_message == 0 && mydata->current_distance > 70){
+        } else if (mydata->new_message == 0 && mydata->current_distance > 70 && isInRange(0,150,DEFAULT_C)){
+          
 
               mydata->danger_flag = 0;
         return;
