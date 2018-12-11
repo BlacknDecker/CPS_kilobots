@@ -16,6 +16,7 @@
 #define WARNING_D 60
 #define SAFE_D 70
 
+#define MAX_MOTION_DELAY 100
 // MOTION TYPE
 typedef enum {
   STOP,
@@ -37,7 +38,7 @@ typedef struct runner_t
   uint8_t runner_id;
   uint8_t last_distance;
   uint8_t new_distance;
-  uint8_t last_direction; // belongs to the interval [0,2] (corrisponding to FORWARD, RIGHT, LEFT)
+  uint8_t last_direction; // belongs to the interval [0,2] (corrisponding to LEFT, FORWARD, RIGHT)
   uint8_t in_range;
 } runner_t;
 
@@ -65,5 +66,7 @@ typedef struct
 
   // flag to stop the communication
   uint8_t stopped; 
+
+  uint8_t motion_delay;
 
 } USERDATA;

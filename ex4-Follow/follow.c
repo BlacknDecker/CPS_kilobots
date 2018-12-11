@@ -45,6 +45,16 @@ void updateMinDistance(distance_measurement_t *d){
 	}
 }
 
+/******* DELAY *********************/
+
+uint8_t waitTicks(uint8_t ticks){
+	uint8_t waitTime = ticks + kilo_ticks;
+	if(kilo_ticks < waitTime){
+    	ticks = waitTicks(ticks-1);
+  	}
+  	return ticks;
+}
+
 /******* MOVEMENT *********************/
 
 void set_motion(motion_t new_motion)
@@ -75,13 +85,7 @@ void get_random_direction(){
       case 2:
         set_motion(RIGHT); break;
     }
-}
 
-void wait(uint8_t sec){
-  uint8_t waitTime = sec*3200 + kilo_ticks;
-  if(kilo_ticks < waitTime){
-    wait(sec-1);
-  }
 }
 
 /******** COLLISION AVOIDANCE ****************/
@@ -160,7 +164,6 @@ void updateRunnerInfo(distance_measurement_t *d){
       mydata->runner.new_distance = estimate_distance(d);
     } else {
       mydata->runner.in_range = 0;
-      mydata->runner.new_distance = MAX_INT;
   }
 }
 
@@ -187,15 +190,16 @@ void readMessage(){
 
 
 /******** TIME MANAGEMENT *******************/
-uint8_t isInRange(uint8_t bottom, uint8_t top, clock_type_t c_type){
+
+uint8_t isInRange(uint8_t delay, clock_type_t c_type){
   // Calculate elapsed time 
   uint8_t elapsed_time;
   switch(c_type){
     case BLINK_C: elapsed_time = kilo_ticks - mydata->blink_clock; break;
     default: elapsed_time = kilo_ticks - mydata->default_clock;
   }
-  // Check range
-  if(elapsed_time >= bottom && elapsed_time < top){
+  // Check delay
+  if(elapsed_time > delay){
     return 1; //True
   } else {
     return 0; //False
@@ -213,9 +217,9 @@ void resetClock(clock_type_t c_type){
 /******* COMMANDS **************************/
 
 void blink(uint8_t off_delay, uint8_t on_delay, uint8_t rgb_color){
-  if(isInRange(0, off_delay, BLINK_C)){      // PHASE OFF
+  if(isInRange(off_delay, BLINK_C)){      // PHASE OFF
     set_color(OFF);
-  } else if (isInRange(off_delay, off_delay+on_delay, BLINK_C)){  // PHASE ON
+  } else if (isInRange(off_delay+on_delay, BLINK_C)){  // PHASE ON
     set_color(rgb_color);
   } else {
     resetClock(BLINK_C); // Reset clock
@@ -225,7 +229,7 @@ void blink(uint8_t off_delay, uint8_t on_delay, uint8_t rgb_color){
 // Moves for a given amount of time (ticks). 
 // Returns true when the movement is finished, otherwise false.
 uint8_t move(motion_t direction, uint8_t duration){
-  if(isInRange(0,duration,DEFAULT_C)){
+  if(isInRange(duration,DEFAULT_C)){
     set_motion(direction);
     return 0;                 // Still moving, return false
   } else {
@@ -237,10 +241,10 @@ uint8_t move(motion_t direction, uint8_t duration){
 // Moves in a circle (more or less)
 // Times are measured in ticks
 void moveInCircle(uint8_t forward_time, uint8_t rotation_time, motion_t direction){
-  if(isInRange(0,forward_time, DEFAULT_C)){                      
+  if(isInRange(forward_time, DEFAULT_C)){                      
     set_motion(FORWARD);
     return;
-  } else if(isInRange(forward_time, forward_time+rotation_time, DEFAULT_C)) {
+  } else if(isInRange(forward_time+rotation_time, DEFAULT_C)) {
     set_motion(direction);
     return;
   } else {
@@ -266,7 +270,7 @@ uint8_t checkIfAlone(uint8_t a_time){
     mydata->message_arrived = 0;
     return 0;
   }else{
-    if(isInRange(0, a_time, DEFAULT_C)){   // If is in range, not enough time elapsed
+    if(isInRange(a_time, DEFAULT_C)){   // If is in range, not enough time elapsed
       return 0;
     }else{
       return 1;
@@ -288,27 +292,42 @@ void changeDirection(){
 }
 
 void setDirection(){
+  printf("last: %d ||| new: %d\n", mydata->runner.last_distance, mydata->runner.new_distance);
   if(mydata->runner.last_distance < mydata->runner.new_distance) { // if the runner is getting far, the catcher changes direction
     changeDirection();
-  }
-  switch(mydata->runner.last_direction){
+	switch(mydata->runner.last_direction){
       case 0:
         set_motion(LEFT); break;
       case 1:
         set_motion(FORWARD); break;
       case 2:
         set_motion(RIGHT); break;
+    //waitSeconds(3);
     }
+  }
+  mydata->runner.last_distance = mydata->runner.new_distance;
+  printf("direction: %d\n", mydata->runner.last_direction);
+}
+
+void walk(){
+	if(mydata->motion_delay == 0) {
+    	get_random_direction();
+    	mydata->motion_delay = MAX_MOTION_DELAY;
+  	}else{
+  		mydata->motion_delay--;
+  	}
 }
 
 void follow(){
 
   if(mydata->runner.in_range == 0){    // the runner is out of range
-    get_random_direction();
+  	walk();
   } else{                              // the runner is in range
-    setDirection();
-  }              
-
+  	setDirection();
+  }
+  if(mydata->runner.last_distance> 95){
+     mydata->runner.in_range = 0;	
+  }
 }
 
 
@@ -320,7 +339,7 @@ void loop() {
   }
 
   if(kilo_uid % 2 == 0){  // kilobots with even id are runners 
-    get_random_direction();
+  	walk();
   } else{                 // kilobots with odd id are catchers 
     follow();
   }
@@ -332,8 +351,6 @@ void loop() {
     // The runner blinks RED
   }
 
-  wait(8); // wait 2 seconds to turn right or left
-
 }
 
 
@@ -343,6 +360,7 @@ void setup(){
   // Message variables
   setup_message(rand_soft()); 
   mydata->stopped = 0; //false
+  mydata->motion_delay = 0;
   mydata->new_message = 0;
   kilo_message_tx = message_tx;
   // Messages
@@ -363,9 +381,14 @@ void setup(){
   } else{                 // kilobots with odd id are catchers 
     set_color(PURPLE);
     kilo_message_rx = message_rx_catcher;
-    runner_t r = {.runner_id = -1, .last_distance = -1, .new_distance = -1, .last_direction = FORWARD, .in_range = 0}; // initialising the runner infos
+    runner_t r = {
+    	.runner_id = get_id_to_follow(), // deciding the kilobot to follow
+    	.last_distance = 0, 
+    	.new_distance = 255, 
+    	.last_direction = 1, // forward
+    	.in_range = 0
+    }; // initialising the runner infos
     mydata->runner = r;
-    mydata->runner.runner_id = get_id_to_follow(); // deciding the kilobot to follow
     printf("runner: %d\n", mydata->runner.runner_id);
   }
 }
@@ -376,8 +399,3 @@ int main() {
   kilo_start(setup, loop);
   return 0;
 }
-
-
-
-
-
