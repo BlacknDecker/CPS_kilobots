@@ -24,7 +24,7 @@ void set_motion(motion_t new_motion)
     set_motors(0,0);
     break;
   case FORWARD:
-    set_motors(kilo_turn_left, kilo_turn_right);
+    set_motors(kilo_straight_left, kilo_straight_right);
     break;
   case LEFT:
     set_motors(kilo_turn_left, 0); 
