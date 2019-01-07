@@ -7,7 +7,7 @@
 SOURCES=test_communication.c time_management.c communication.c 
 
 #name of the executable file
-EXECUTABLE=test_communication.exe
+EXECUTABLE=testCommunication.exe
 
 # Path to the official kilolib, used for real bots only
 # Set it here, or as an environment variable in the shell:
